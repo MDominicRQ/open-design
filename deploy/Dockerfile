@@ -68,9 +68,20 @@ RUN pnpm --filter @open-design/daemon build && \
 
 FROM ${RUNTIME_IMAGE}
 
-RUN apk add --no-cache tini poppler-utils && \
+RUN apk add --no-cache \
+    tini \
+    poppler-utils \
+    bash \
+    curl \
+    git \
+    ca-certificates \
+    npm \
+    openssh-client \
+    libc6-compat \
+    gcompat && \
+    npm i -g @openai/codex @anthropic-ai/claude-code @google/gemini-cli && \
     addgroup -S -g 1001 open-design && \
-    adduser -S -D -H -u 1001 -G open-design open-design
+    adduser -S -D -u 1001 -G open-design open-design
 
 WORKDIR /app
 COPY --from=build --chown=open-design:open-design /app/deploy/daemon ./apps/daemon
@@ -95,6 +106,15 @@ ENV NODE_ENV=production
 ENV NODE_OPTIONS=--max-old-space-size=192
 ENV OD_BIND_HOST=0.0.0.0
 ENV OD_PORT=7456
+
+ENV HOME=/home/open-design
+ENV PATH="/home/open-design/.local/bin:/root/.local/bin:/usr/local/bin:${PATH}"
+
+RUN mkdir -p /app/.od /home/open-design && \
+    chown -R open-design:open-design /app /home/open-design && \
+    command -v codex && \
+    command -v claude && \
+    command -v gemini
 
 EXPOSE 7456
 
