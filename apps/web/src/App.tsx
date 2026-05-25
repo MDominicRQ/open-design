@@ -533,6 +533,18 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!settingsOpen) return;
+    let cancelled = false;
+    void fetchAppVersionInfo().then((info) => {
+      if (cancelled) return;
+      setAppVersionInfo(info);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settingsOpen]);
+
   // Auto-pick the first available agent once both the daemon-stored config
   // and the agents listing have landed. Splitting this out of bootstrap
   // avoids racing the local-config initial value against a slow agents

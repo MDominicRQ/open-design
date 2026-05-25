@@ -16,8 +16,10 @@ Defaults:
 
 - Host port: `127.0.0.1:7456` (`OPEN_DESIGN_PORT=8080` to publish on `127.0.0.1:8080`)
 - Runtime data volume: `open_design_data` mounted at `/app/.od`
+- CLI auth/config volume: `open_design_home` mounted at `/home/open-design`
 - Node heap cap: `--max-old-space-size=192`
-- Compose memory cap: `384m` (`OPEN_DESIGN_MEM_LIMIT=256m` to override)
+- Compose memory cap: `1g` (`OPEN_DESIGN_MEM_LIMIT=1536m` to override)
+- Version label: bundled app version, or `OPEN_DESIGN_VERSION=<version>` to show a fork/image label in Settings → About
 
 Do not publish the daemon directly on a public or shared LAN interface. The API is
 unauthenticated for non-browser clients, so remote deployments should keep Compose
@@ -37,9 +39,24 @@ Pin a specific published image with a digest instead of the mutable `latest` tag
 ```bash
 OPEN_DESIGN_IMAGE=docker.io/vanjayak/open-design@sha256:<digest> docker compose up -d --no-build
 ```
-The image intentionally does not bundle Claude/Codex/Gemini CLI binaries. Keep
-those outside the image, or build a separate private runtime layer if a server
-deployment needs local code-agent CLIs installed in the container.
+This fork's runtime image bundles Codex CLI, Claude Code, and Gemini CLI. Open
+Design only shows a CLI as an installed Local CLI provider after the daemon can
+spawn its `--version` probe inside the container. If a CLI is missing from
+Settings → Local CLI, check the runtime user first:
+
+```bash
+docker compose exec open-design sh -lc 'whoami; command -v codex claude gemini; codex --version; claude --version; gemini --version'
+curl http://127.0.0.1:${OPEN_DESIGN_PORT:-7456}/api/agents
+```
+
+Authenticate CLIs inside the container so their state is written to the
+`open_design_home` volume:
+
+```bash
+docker compose exec open-design codex login
+docker compose exec open-design claude /login
+docker compose exec open-design gemini
+```
 
 ## Publish to Docker Hub
 

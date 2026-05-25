@@ -75,8 +75,11 @@ RUN apk add --no-cache \
     curl \
     git \
     ca-certificates \
+    ripgrep \
     npm \
     openssh-client \
+    libgcc \
+    libstdc++ \
     libc6-compat \
     gcompat && \
     npm i -g @openai/codex @anthropic-ai/claude-code @google/gemini-cli && \
@@ -106,18 +109,23 @@ ENV NODE_ENV=production
 ENV NODE_OPTIONS=--max-old-space-size=192
 ENV OD_BIND_HOST=0.0.0.0
 ENV OD_PORT=7456
+ENV SHELL=/bin/bash
+ENV USE_BUILTIN_RIPGREP=0
+ENV GEMINI_CLI_NO_RELAUNCH=true
 
 ENV HOME=/home/open-design
 ENV PATH="/home/open-design/.local/bin:/root/.local/bin:/usr/local/bin:${PATH}"
 
 RUN mkdir -p /app/.od /home/open-design && \
-    chown -R open-design:open-design /app /home/open-design && \
-    command -v codex && \
-    command -v claude && \
-    command -v gemini
+    chown -R open-design:open-design /app /home/open-design
 
 EXPOSE 7456
 
 USER open-design
+
+RUN command -v codex && codex --version && \
+    command -v claude && claude --version && \
+    command -v gemini && gemini --version
+
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "apps/daemon/dist/cli.js", "--no-open"]
