@@ -3439,6 +3439,7 @@ export async function startServer({
       '/api/version',
       '/api/daemon/status',
       '/api/agents',
+      '/api/test/connection',
       '/health',
       '/version',
       '/daemon/status',
