@@ -1,153 +1,32 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
-import {
-  checkDaemonAuthRequired,
-  getStoredApiToken,
-  patchGlobalFetch,
-  setStoredApiToken,
-  validateToken,
-} from '../../src/utils/daemon-auth';
 
-function ApiTokenInput({ onSubmit }: { onSubmit: (token: string) => void }) {
-  const [value, setValue] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+import { installErrorHandlers } from '../../src/analytics/error-tracking';
+import { installWebObservability } from '../../src/observability/install';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!value.trim()) return;
-    setError('');
-    setLoading(true);
-    const valid = await validateToken(value.trim());
-    setLoading(false);
-    if (valid) {
-      setStoredApiToken(value.trim());
-      onSubmit(value.trim());
-    } else {
-      setError('Token inválido o denegado por el daemon. Verificá OD_API_TOKEN en tu despliegue.');
-    }
-  };
+// Install browser exception handlers at module-load time, before any other
+// client code can throw. The hooks buffer events until AnalyticsProvider
+// finishes `bootstrapExceptionTracking()` with the PostHog key, so even
+// errors thrown during the dynamic import of `src/App` are captured.
+installErrorHandlers();
 
-  return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#0a0a0a',
-      color: '#fff',
-      fontFamily: 'system-ui, sans-serif',
-      padding: '24px',
-    }}>
-      <div style={{ maxWidth: 420, width: '100%' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Open Design</h1>
-        <p style={{ color: '#a0a0a0', marginBottom: 32, fontSize: 14 }}>
-          Este despliegue requiere un token de acceso. Configurá <code style={{ background: '#1a1a1a', padding: '2px 6px', borderRadius: 4 }}>OD_API_TOKEN</code> en tu{' '}
-          <code style={{ background: '#1a1a1a', padding: '2px 6px', borderRadius: 4 }}>docker-compose.yml</code> y pegalo abajo.
-        </p>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="password"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="OD_API_TOKEN"
-            autoFocus
-            style={{
-              width: '100%',
-              padding: '12px 14px',
-              background: '#111',
-              border: '1px solid #333',
-              borderRadius: 8,
-              color: '#fff',
-              fontSize: 14,
-              outline: 'none',
-              boxSizing: 'border-box',
-              marginBottom: error ? 8 : 16,
-            }}
-          />
-          {error && (
-            <p style={{ color: '#f87171', fontSize: 13, marginBottom: 16 }}>{error}</p>
-          )}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: loading ? '#1d4ed8' : '#2563eb',
-              border: 'none',
-              borderRadius: 8,
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: loading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {loading ? 'Verificando…' : 'Conectar'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
+// Install the rest of the observability surface (long tasks, white-screen
+// detector, resource-error capture, boot timing, visibility tracking).
+// Same buffer + consent-bypass transport as the exception handler above
+// so events fired before AnalyticsProvider initialises still flush.
+installWebObservability();
 
-function LoadingScreen() {
-  return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#0a0a0a',
-      color: '#fff',
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: 14,
-      gap: 12,
-    }}>
-      <span>Cargando Open Design…</span>
-    </div>
-  );
-}
-
-interface AuthState {
-  checked: boolean;
-  requiresAuth: boolean;
-  tokenValid: boolean;
-}
-
+// The product is a fully client-driven SPA — every component reads
+// localStorage, window.location, etc. — so we opt out of static-time
+// rendering for the entire tree. This keeps `next build --output export`
+// from trying to evaluate browser-only code while still emitting a real
+// shell HTML the daemon can serve as the SPA fallback.
 const App = dynamic(() => import('../../src/App').then((m) => m.App), {
   ssr: false,
-  loading: () => <LoadingScreen />,
+  loading: () => <div className="od-loading-shell">Loading Open Design…</div>,
 });
 
 export function ClientApp() {
-  const [auth, setAuth] = useState<AuthState>({ checked: false, requiresAuth: false, tokenValid: false });
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const requiresAuth = await checkDaemonAuthRequired();
-      if (cancelled) return;
-      const token = getStoredApiToken();
-      const tokenValid = token ? await validateToken(token) : false;
-      if (cancelled) return;
-      setAuth({ checked: true, requiresAuth, tokenValid });
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  if (!auth.checked) return <LoadingScreen />;
-
-  if (auth.requiresAuth && !auth.tokenValid) {
-    return <ApiTokenInput onSubmit={() => {
-      patchGlobalFetch();
-      setAuth({ checked: true, requiresAuth: true, tokenValid: true });
-    }} />;
-  }
-
-  patchGlobalFetch();
-
   return <App />;
 }

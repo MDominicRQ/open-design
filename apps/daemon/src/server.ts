@@ -3426,13 +3426,48 @@ export async function startServer({
   const app = express();
   app.use(express.json({ limit: '4mb' }));
 
-  // Plan §3.K1 — bearer-token middleware.
+  // Session cookie name — signed with OD_API_TOKEN so tampering is detected.
+  const SESSION_COOKIE = 'od_session';
+  const SESSION_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
+
+  // HMAC-based cookie signature. Value format: "<timestamp>.<payload>" signed.
+  function signSessionPayload(payload: string): string {
+    const { createHmac } = require('node:crypto');
+    const sig = createHmac('sha256', apiToken).update(payload).digest('hex');
+    return `${payload}.${sig}`;
+  }
+
+  function verifySessionCookie(cookieValue: string): boolean {
+    try {
+      const lastDot = cookieValue.lastIndexOf('.');
+      if (lastDot === -1) return false;
+      const payload = cookieValue.slice(0, lastDot);
+      const expected = signSessionPayload(payload);
+      // Constant-time compare so timing attacks can't forge tokens.
+      if (expected.length !== cookieValue.length) return false;
+      let diff = 0;
+      for (let i = 0; i < expected.length; i++) {
+        diff |= expected.charCodeAt(i) ^ cookieValue.charCodeAt(i);
+      }
+      if (diff !== 0) return false;
+      // Decode and validate timestamp.
+      const firstDot = payload.indexOf('.');
+      if (firstDot === -1) return false;
+      const age = Date.now() - Number.parseInt(payload.slice(0, firstDot), 10);
+      return age < SESSION_COOKIE_MAX_AGE * 1000;
+    } catch {
+      return false;
+    }
+  }
+
+  // Plan §3.K1 — bearer-token + session-cookie middleware.
   //
   // Active only when OD_API_TOKEN is set. Loopback origins skip the
   // check (the desktop UI / local CLI never carry a bearer); every
-  // other request must present `Authorization: Bearer <token>` with a
-  // value matching `OD_API_TOKEN`. Health / version / status remain
-  // open so monitoring probes don't need the token.
+  // other request must present either:
+  //   - `Authorization: Bearer <OD_API_TOKEN>`
+  //   - a valid `od_session` cookie (created by POST /api/auth/session)
+  // Health / version / status remain open so monitoring probes don't need the token.
   if (apiToken.length > 0) {
     const openProbePaths = new Set([
       '/api/health',
@@ -3440,6 +3475,7 @@ export async function startServer({
       '/api/daemon/status',
       '/api/agents',
       '/api/test/connection',
+      '/api/auth/session',
       '/health',
       '/version',
       '/daemon/status',
@@ -3454,12 +3490,20 @@ export async function startServer({
       if (isLoopbackPeerAddress(req.socket?.remoteAddress)) return next();
       const auth = req.get('authorization') ?? '';
       const match = /^Bearer\s+(\S+)\s*$/i.exec(auth);
-      if (!match || match[1] !== apiToken) {
-        return res.status(401).json({
-          error: { code: 'API_TOKEN_REQUIRED', message: 'Authorization: Bearer <OD_API_TOKEN> required' },
-        });
+      if (match && match[1] === apiToken) return next();
+      const cookieHeader = req.get('cookie') ?? '';
+      const cookies: Record<string, string> = {};
+      for (const pair of cookieHeader.split(';')) {
+        const eq = pair.indexOf('=');
+        if (eq >= 0) {
+          cookies[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
+        }
       }
-      return next();
+      const session = cookies[SESSION_COOKIE];
+      if (session && verifySessionCookie(session)) return next();
+      return res.status(401).json({
+        error: { code: 'API_TOKEN_REQUIRED', message: 'Authorization: Bearer <OD_API_TOKEN> required' },
+      });
     });
   }
 
@@ -3930,6 +3974,38 @@ export async function startServer({
       version: versionInfo.version,
       auth: { apiTokenRequired: apiToken.length > 0 },
     });
+  });
+
+  // Session creation endpoint. Accepts { token } body, validates against
+  // OD_API_TOKEN, and on success sets a signed HttpOnly session cookie.
+  // The cookie is valid for 7 days and is checked by the bearer middleware
+  // on every /api/* request so the browser SSE connections and fetch calls
+  // authenticate without needing custom headers.
+  app.post('/api/auth/session', async (req, res) => {
+    const apiToken = (process.env.OD_API_TOKEN ?? '').trim();
+    if (apiToken.length === 0) {
+      return res.status(400).json({ error: { code: 'NO_TOKEN_CONFIGURED', message: 'Daemon has no OD_API_TOKEN configured' } });
+    }
+    let body: { token?: unknown } = {};
+    try {
+      if (typeof req.body === 'object' && req.body !== null) {
+        body = req.body as { token?: unknown };
+      } else if (typeof req.body === 'string' && req.body.length > 0) {
+        body = JSON.parse(req.body);
+      }
+    } catch {
+      // ignore parse failure
+    }
+    if (typeof body?.token !== 'string' || body.token.trim() !== apiToken) {
+      return res.status(401).json({ error: { code: 'INVALID_TOKEN', message: 'Invalid token' } });
+    }
+    const payload = `${Date.now()}.session`;
+    const signed = signSessionPayload(payload);
+    res.setHeader(
+      'Set-Cookie',
+      `${SESSION_COOKIE}=${signed}; Path=/api; HttpOnly; SameSite=Lax; Max-Age=${SESSION_COOKIE_MAX_AGE}`,
+    );
+    res.json({ ok: true });
   });
 
   app.get('/api/version', async (_req, res) => {

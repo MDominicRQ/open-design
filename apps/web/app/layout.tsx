@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { I18nProvider } from '../src/i18n';
+import { DaemonAuthGate } from '../src/providers/daemon-auth-gate';
 import { AnalyticsProvider } from '../src/analytics/provider';
 import '../src/index.css';
 import '../src/styles/home/index.css';
@@ -37,7 +38,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body suppressHydrationWarning>
         <I18nProvider>
-          <AnalyticsProvider>{children}</AnalyticsProvider>
+          <DaemonAuthGate>
+            <AnalyticsProvider>{children}</AnalyticsProvider>
+          </DaemonAuthGate>
         </I18nProvider>
       </body>
     </html>
