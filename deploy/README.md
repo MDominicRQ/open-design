@@ -4,6 +4,33 @@ This deployment ships Open Design as a single Alpine-based runtime image. The
 daemon serves both the API and the built Next.js static export, so there is no
 separate nginx container.
 
+## Authentication
+
+When `OD_API_TOKEN` is set (default in Docker since this image binds to `0.0.0.0`),
+every `/api/*` endpoint requires an `Authorization: Bearer <token>` header. The web
+UI prompts for the token on first load and stores it in localStorage. Remote CLIs
+use `--api-token <token>` or set the `OD_DAEMON_API_TOKEN` environment variable:
+
+```bash
+# Generate a token
+OD_API_TOKEN=$(openssl rand -hex 32)
+echo "OD_API_TOKEN=$OD_API_TOKEN"
+
+# Run a remote CLI
+od --api-token "$OD_API_TOKEN" --daemon-url http://your-host:7456 project list
+
+# Or export the env var
+export OD_DAEMON_API_TOKEN="$OD_API_TOKEN"
+od --daemon-url http://your-host:7456 project list
+```
+
+Do not publish the daemon directly on a public or shared LAN interface without
+setting `OD_API_TOKEN`. Generate one with:
+
+```bash
+openssl rand -hex 32
+```
+
 ## Local compose
 
 ```bash
@@ -31,17 +58,13 @@ Defaults:
 - Compose memory cap: `1g` (`OPEN_DESIGN_MEM_LIMIT=1536m` to override)
 - Version label: bundled app version, or `OPEN_DESIGN_VERSION=<version>` to show a fork/image label in Settings → About
 
-Do not publish the daemon directly on a public or shared LAN interface. The API is
-unauthenticated for non-browser clients, so remote deployments should keep Compose
-bound to localhost and put an authenticated reverse proxy, SSH tunnel, or VPN in
-front of it.
-
 When exposing the service through an authenticated public IP, domain, or reverse
-proxy, set `OPEN_DESIGN_ALLOWED_ORIGINS` to the browser origins that should be
+proxy, also set `OPEN_DESIGN_ALLOWED_ORIGINS` to the browser origins that should be
 allowed to call `/api`:
 
 ```bash
-OPEN_DESIGN_ALLOWED_ORIGINS=https://od.example.com,http://203.0.113.10:7456 docker compose up -d --no-build
+OD_API_TOKEN=$(openssl rand -hex 32)
+OPEN_DESIGN_ALLOWED_ORIGINS=https://od.example.com docker compose up -d --no-build
 ```
 
 Pin a specific published image with a digest instead of the mutable `latest` tag:

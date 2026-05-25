@@ -3924,7 +3924,12 @@ export async function startServer({
 
   app.get('/api/health', async (_req, res) => {
     const versionInfo = await readCurrentAppVersionInfo();
-    res.json({ ok: true, version: versionInfo.version });
+    const apiToken = (process.env.OD_API_TOKEN ?? '').trim();
+    res.json({
+      ok: true,
+      version: versionInfo.version,
+      auth: { apiTokenRequired: apiToken.length > 0 },
+    });
   });
 
   app.get('/api/version', async (_req, res) => {
