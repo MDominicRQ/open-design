@@ -2722,6 +2722,12 @@ export function SettingsDialog({
                                     {description}
                                   </div>
                                 ) : null}
+                                {a.path || a.diagnostic ? (
+                                  <div className="agent-card-diagnostic">
+                                    {a.path ? <span>{a.path}</span> : null}
+                                    {a.diagnostic ? <span>{a.diagnostic}</span> : null}
+                                  </div>
+                                ) : null}
                               </div>
                               {hasLinks ? (
                                 <div className="agent-card-actions agent-card-actions--inline">

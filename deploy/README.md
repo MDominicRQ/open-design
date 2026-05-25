@@ -55,9 +55,13 @@ spawn its `--version` probe inside the container. If a CLI is missing from
 Settings → Local CLI, check the runtime user first:
 
 ```bash
-docker compose exec open-design sh -lc 'whoami; command -v codex claude gemini; codex --version; claude --version; gemini --version'
+docker compose exec open-design sh -lc 'whoami; printf "%s\n" "$PATH"; command -v codex claude gemini; env | grep -E "^(CODEX|CLAUDE|GEMINI)_BIN="; codex --version; claude --version; gemini --version'
 curl http://127.0.0.1:${OPEN_DESIGN_PORT:-7456}/api/agents
 ```
+
+The bundled CLIs are pinned through `CODEX_BIN`, `CLAUDE_BIN`, and `GEMINI_BIN`
+to `/usr/local/bin/*` so stale shims in the persistent `/home/open-design`
+volume cannot hide the image-provided binaries.
 
 Authenticate CLIs inside the container so their state is written to the
 `open_design_home` volume:

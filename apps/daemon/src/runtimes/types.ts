@@ -123,6 +123,7 @@ export type DetectedAgent = Omit<
   authMessage?: string;
   path?: string;
   version?: string | null;
+  diagnostic?: string;
 };
 
 export type RuntimeExecOptions = ExecFileOptions & {

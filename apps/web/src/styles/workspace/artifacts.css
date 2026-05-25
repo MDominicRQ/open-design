@@ -942,6 +942,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.agent-card-diagnostic {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--text-soft);
+}
+.agent-card-diagnostic span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .agent-card-meta {
   font-size: 11px; color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -2176,4 +2190,3 @@
   font-weight: 500;
   color: var(--accent);
 }
-

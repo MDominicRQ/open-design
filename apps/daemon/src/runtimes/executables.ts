@@ -111,7 +111,8 @@ function configuredExecutableOverride(
 ): string | null {
   const envKey = AGENT_BIN_ENV_KEYS.get(def?.id);
   if (!envKey) return null;
-  const raw = configuredEnv?.[envKey];
+  const raw = configuredEnv?.[envKey]
+    ?? (process.env.OD_AGENT_HOME ? undefined : process.env[envKey]);
   if (typeof raw !== 'string' || raw.trim().length === 0) return null;
   const expanded = expandHomePath(raw.trim());
   if (!path.isAbsolute(expanded)) return null;

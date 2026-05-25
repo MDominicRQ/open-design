@@ -12,6 +12,8 @@ export interface AgentInfo {
   authMessage?: string;
   path?: string;
   version?: string | null;
+  /** Short daemon-side detection detail for CLIs found but not usable. */
+  diagnostic?: string;
   models?: AgentModelOption[];
   /** Whether models came from the installed CLI or Open Design's static fallback. */
   modelsSource?: 'live' | 'fallback';

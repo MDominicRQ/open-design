@@ -61,7 +61,7 @@ async function fetchModels(
 }
 
 type VersionProbeOutcome =
-  | { kind: 'not-invocable' }
+  | { kind: 'not-invocable'; diagnostic: string }
   | { kind: 'spawned'; version: string | null };
 
 /**
@@ -106,23 +106,31 @@ async function probeVersionAtPath(
     return { kind: 'spawned', version };
   } catch (err) {
     const code = (err as NodeJS.ErrnoException)?.code;
+    const message = err instanceof Error && err.message.trim()
+      ? err.message.trim().split('\n')[0]
+      : String(err || 'version probe failed');
     if (typeof code === 'string') {
       if (code === 'ENOENT' || code === 'EACCES' || code === 'ENOTDIR') {
-        return { kind: 'not-invocable' };
+        return { kind: 'not-invocable', diagnostic: `${code}: ${message}` };
       }
     } else if (typeof code === 'number' && (code === 126 || code === 127)) {
-      return { kind: 'not-invocable' };
+      return { kind: 'not-invocable', diagnostic: `exit ${code}: ${message}` };
     }
     return { kind: 'spawned', version: null };
   }
 }
 
-function unavailableAgent(def: RuntimeAgentDef): DetectedAgent {
+function unavailableAgent(
+  def: RuntimeAgentDef,
+  details: { path?: string | null; diagnostic?: string | null } = {},
+): DetectedAgent {
   return {
     ...stripFns(def),
     models: def.fallbackModels ?? [DEFAULT_MODEL_OPTION],
     modelsSource: 'fallback',
     available: false,
+    ...(details.path ? { path: details.path } : {}),
+    ...(details.diagnostic ? { diagnostic: details.diagnostic } : {}),
     ...installMetaForAgent(def.id),
   };
 }
@@ -141,7 +149,9 @@ async function probe(
   // hand even though the real launch path is healthy.
   const launch = resolveAgentLaunch(def, configuredEnv);
   if (!launch.selectedPath || !launch.launchPath) {
-    return unavailableAgent(def);
+    return unavailableAgent(def, {
+      diagnostic: `No ${def.bin} executable found on PATH or configured ${def.id.toUpperCase()}_BIN.`,
+    });
   }
   const probeEnv = applyAgentLaunchEnv(
     spawnEnvForAgent(
@@ -156,7 +166,10 @@ async function probe(
   );
   const outcome = await probeVersionAtPath(def, launch.launchPath, probeEnv);
   if (outcome.kind === 'not-invocable') {
-    return unavailableAgent(def);
+    return unavailableAgent(def, {
+      path: launch.selectedPath,
+      diagnostic: outcome.diagnostic,
+    });
   }
   // Probe `--help` once per agent and record which flags the installed CLI
   // advertises. Cached on `agentCapabilities` for buildArgs to consult.
@@ -235,7 +248,10 @@ async function safeProbe(
     // Without this guard the bare `Promise.all` rejected and the
     // `/api/agents` catch arm returned `[]`, so the UI silently lost
     // every CLI option and fell back to BYOK / Cloud only.
-    return unavailableAgent(def);
+    const message = err instanceof Error && err.message.trim()
+      ? err.message.trim().split('\n')[0]
+      : String(err || 'agent probe failed');
+    return unavailableAgent(def, { diagnostic: message });
   }
 }
 

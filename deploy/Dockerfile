@@ -114,7 +114,10 @@ ENV USE_BUILTIN_RIPGREP=0
 ENV GEMINI_CLI_NO_RELAUNCH=true
 
 ENV HOME=/home/open-design
-ENV PATH="/home/open-design/.local/bin:/root/.local/bin:/usr/local/bin:${PATH}"
+ENV PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:/home/open-design/.local/bin:/root/.local/bin"
+ENV CODEX_BIN=/usr/local/bin/codex
+ENV CLAUDE_BIN=/usr/local/bin/claude
+ENV GEMINI_BIN=/usr/local/bin/gemini
 
 RUN mkdir -p /app/.od /home/open-design && \
     chown -R open-design:open-design /app /home/open-design
