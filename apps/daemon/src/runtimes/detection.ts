@@ -248,9 +248,9 @@ async function safeProbe(
     // Without this guard the bare `Promise.all` rejected and the
     // `/api/agents` catch arm returned `[]`, so the UI silently lost
     // every CLI option and fell back to BYOK / Cloud only.
-    const message = err instanceof Error && err.message.trim()
+    const message = (err instanceof Error && err.message.trim()
       ? err.message.trim().split('\n')[0]
-      : String(err || 'agent probe failed');
+      : String(err || 'agent probe failed')) || 'agent probe failed';
     return unavailableAgent(def, { diagnostic: message });
   }
 }
