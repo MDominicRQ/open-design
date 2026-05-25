@@ -3,9 +3,7 @@ name: open-design
 services:
   open-design:
     container_name: open-design
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+    image: ghcr.io/mdominicrq/open-design:latest
     restart: always
     environment:
       NODE_ENV: production
