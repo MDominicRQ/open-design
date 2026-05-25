@@ -3,7 +3,6 @@ name: open-design
 services:
   open-design:
     container_name: open-design
-    image: ${OPEN_DESIGN_IMAGE:-docker.io/vanjayak/open-design:latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile
@@ -15,10 +14,11 @@ services:
       OD_ALLOWED_ORIGINS: ${OPEN_DESIGN_ALLOWED_ORIGINS:-}
       OD_PORT: 7456
       OD_WEB_PORT: ${OPEN_DESIGN_PORT:-7456}
-    ports:
-      - "127.0.0.1:${OPEN_DESIGN_PORT:-7456}:7456"
+    expose:
+      - "${OPEN_DESIGN_PORT:-7456}"
     volumes:
       - open_design_data:/app/.od
+      - open_design_home:/home/open-design
     read_only: true
     tmpfs:
       - /tmp
@@ -41,3 +41,4 @@ services:
 
 volumes:
   open_design_data:
+  open_design_home:
