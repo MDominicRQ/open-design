@@ -1,4 +1,4 @@
-name: Build and publish latest Docker image
+name: Build and publish latest multi-arch Docker image
 
 on:
   push:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build-and-push-latest:
-    name: Build and push latest
+    name: Build and push latest multi-arch
     runs-on: ubuntu-latest
 
     permissions:
@@ -61,6 +61,9 @@ jobs:
           context: .
           file: deploy/Dockerfile
           push: true
+          # Publish one tag only. Buildx attaches the per-architecture
+          # manifests as children of `latest`; do not create `latest-amd64`,
+          # `latest-arm64`, commit-SHA, or run-number tags.
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.image_ref.outputs.ref }}
           cache-from: type=gha
@@ -79,4 +82,5 @@ jobs:
       - name: Delete old untagged GHCR versions
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
+          exclude-tags: latest
           delete-untagged: true
