@@ -114,6 +114,8 @@ ENV USE_BUILTIN_RIPGREP=0
 ENV GEMINI_CLI_NO_RELAUNCH=true
 
 ENV HOME=/home/open-design
+ENV CODEX_HOME=/home/open-design/.codex
+ENV CLAUDE_CONFIG_DIR=/home/open-design/.claude
 ENV PATH="/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin:/home/open-design/.local/bin:/root/.local/bin"
 ENV CODEX_BIN=/usr/local/bin/codex
 ENV CLAUDE_BIN=/usr/local/bin/claude

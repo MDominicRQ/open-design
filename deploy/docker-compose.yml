@@ -15,14 +15,6 @@ services:
       OD_PORT: 7456
       OD_WEB_PORT: ${OPEN_DESIGN_PORT:-7456}
       OD_APP_VERSION: ${OPEN_DESIGN_VERSION:-}
-      SHELL: /bin/bash
-      CODEX_HOME: /home/open-design/.codex
-      CODEX_BIN: /usr/local/bin/codex
-      CLAUDE_CONFIG_DIR: /home/open-design/.claude
-      CLAUDE_BIN: /usr/local/bin/claude
-      GEMINI_BIN: /usr/local/bin/gemini
-      GEMINI_CLI_NO_RELAUNCH: "true"
-      USE_BUILTIN_RIPGREP: "0"
     expose:
       - "${OPEN_DESIGN_PORT:-7456}"
     volumes:

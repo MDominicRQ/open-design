@@ -240,7 +240,7 @@ async function safeProbe(
 ): Promise<DetectedAgent> {
   try {
     return await probe(def, configuredEnv);
-  } catch {
+  } catch (err) {
     // Fault isolation (issue #2297): one adapter's probe blowing up
     // — e.g. a synchronous filesystem throw during PATH walking on a
     // packaged Windows daemon, or an async rejection from one of the
