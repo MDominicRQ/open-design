@@ -74,13 +74,25 @@ jobs:
       - name: Verify pushed multi-arch manifest
         shell: bash
         run: |
-          manifest="$(docker buildx imagetools inspect '${{ steps.image_ref.outputs.ref }}')"
-          printf '%s\n' "$manifest"
-          grep -q 'linux/amd64' <<<"$manifest"
-          grep -q 'linux/arm64' <<<"$manifest"
-
-      - name: Delete old untagged GHCR versions
-        uses: dataaxiom/ghcr-cleanup-action@v1
-        with:
-          exclude-tags: latest
-          delete-untagged: true
+          image_ref='${{ steps.image_ref.outputs.ref }}'
+          docker buildx imagetools inspect --raw "$image_ref" > /tmp/open-design-latest-manifest.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync('/tmp/open-design-latest-manifest.json', 'utf8'));
+          const manifests = Array.isArray(manifest.manifests) ? manifest.manifests : [];
+          const platforms = new Set(
+            manifests.map((entry) => `${entry.platform?.os ?? ''}/${entry.platform?.architecture ?? ''}`),
+          );
+          for (const expected of ['linux/amd64', 'linux/arm64']) {
+            if (!platforms.has(expected)) {
+              console.error(`missing platform in latest manifest: ${expected}`);
+              console.error(JSON.stringify(manifest, null, 2));
+              process.exit(1);
+            }
+          }
+          if (platforms.size < 2) {
+            console.error('latest must be a multi-arch manifest, not a single-arch image');
+            console.error(JSON.stringify(manifest, null, 2));
+            process.exit(1);
+          }
+          NODE

@@ -8,13 +8,23 @@ separate nginx container.
 
 ```bash
 cd deploy
-OPEN_DESIGN_IMAGE=docker.io/vanjayak/open-design:latest docker compose pull
-OPEN_DESIGN_IMAGE=docker.io/vanjayak/open-design:latest docker compose up -d --no-build
+OPEN_DESIGN_IMAGE=ghcr.io/mdominicrq/open-design:latest docker compose pull
+OPEN_DESIGN_IMAGE=ghcr.io/mdominicrq/open-design:latest docker compose up -d --no-build
+```
+
+If Docker previously cached a single-architecture `latest` image and startup
+fails with `exec /sbin/tini: exec format error`, remove the cached tag once and
+pull the multi-arch manifest again:
+
+```bash
+docker image rm ghcr.io/mdominicrq/open-design:latest
+OPEN_DESIGN_IMAGE=ghcr.io/mdominicrq/open-design:latest docker compose pull
 ```
 
 Defaults:
 
 - Host port: `127.0.0.1:7456` (`OPEN_DESIGN_PORT=8080` to publish on `127.0.0.1:8080`)
+- Runtime image: `OPEN_DESIGN_IMAGE`, defaulting to the multi-arch `ghcr.io/mdominicrq/open-design:latest`
 - Runtime data volume: `open_design_data` mounted at `/app/.od`
 - CLI auth/config volume: `open_design_home` mounted at `/home/open-design`
 - Node heap cap: `--max-old-space-size=192`
@@ -37,7 +47,7 @@ OPEN_DESIGN_ALLOWED_ORIGINS=https://od.example.com,http://203.0.113.10:7456 dock
 Pin a specific published image with a digest instead of the mutable `latest` tag:
 
 ```bash
-OPEN_DESIGN_IMAGE=docker.io/vanjayak/open-design@sha256:<digest> docker compose up -d --no-build
+OPEN_DESIGN_IMAGE=ghcr.io/mdominicrq/open-design@sha256:<digest> docker compose up -d --no-build
 ```
 This fork's runtime image bundles Codex CLI, Claude Code, and Gemini CLI. Open
 Design only shows a CLI as an installed Local CLI provider after the daemon can
@@ -67,7 +77,7 @@ deploy/scripts/publish-images.sh --image_tag latest
 Useful overrides:
 
 ```bash
-IMAGE_NAMESPACE=your-dockerhub-user deploy/scripts/publish-images.sh --arch arm64
+IMAGE_NAMESPACE=your-dockerhub-user deploy/scripts/publish-images.sh --image_tag latest
 deploy/scripts/publish-images.sh --image docker.io/your-user/open-design:0.1.0
 ```
 

@@ -3,7 +3,8 @@ name: open-design
 services:
   open-design:
     container_name: open-design
-    image: ghcr.io/mdominicrq/open-design:latest
+    image: ${OPEN_DESIGN_IMAGE:-ghcr.io/mdominicrq/open-design:latest}
+    pull_policy: always
     restart: always
     environment:
       NODE_ENV: production
