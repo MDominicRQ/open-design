@@ -13,6 +13,7 @@
 // negative case that constructs the start call directly).
 
 import type http from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startServer } from '../src/server.js';
 
@@ -22,6 +23,12 @@ const PREVIOUS_HOST  = process.env.OD_BIND_HOST;
 let server: http.Server | undefined;
 let baseUrl = '';
 let shutdown: (() => Promise<void> | void) | undefined;
+
+function firstNonLoopbackIpv4(): string | undefined {
+  return Object.values(networkInterfaces())
+    .flatMap((entries) => entries ?? [])
+    .find((entry) => entry.family === 'IPv4' && !entry.internal)?.address;
+}
 
 afterEach(async () => {
   if (shutdown) await Promise.resolve(shutdown());
@@ -54,6 +61,33 @@ describe('bound-API-token guard', () => {
     shutdown = started.shutdown;
     baseUrl = started.url;
     expect(baseUrl).toMatch(/^http:\/\/127\.0\.0\.1:/);
+  });
+});
+
+describe('auth session endpoint', () => {
+  const nonLoopbackAddress = firstNonLoopbackIpv4();
+  const itIfNonLoopbackAddress = nonLoopbackAddress ? it : it.skip;
+
+  itIfNonLoopbackAddress('creates a session without a bearer from non-loopback callers', async () => {
+    process.env.OD_API_TOKEN = 'secret-test-token';
+    const started = (await startServer({ port: 0, host: '0.0.0.0', returnServer: true })) as {
+      url: string;
+      server: http.Server;
+      shutdown?: () => Promise<void> | void;
+    };
+    server = started.server;
+    shutdown = started.shutdown;
+    const port = new URL(started.url).port;
+
+    const resp = await fetch(`http://${nonLoopbackAddress}:${port}/api/auth/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'secret-test-token' }),
+    });
+
+    expect(resp.status).toBe(200);
+    expect(await resp.json()).toEqual({ ok: true });
+    expect(resp.headers.get('set-cookie')).toContain('od_session=');
   });
 });
 

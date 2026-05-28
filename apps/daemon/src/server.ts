@@ -3476,13 +3476,10 @@ export async function startServer({
       '/api/agents',
       '/api/test/connection',
       '/api/auth/session',
-      '/health',
-      '/version',
-      '/daemon/status',
-      '/agents',
     ]);
     app.use('/api', (req, res, next) => {
-      if (openProbePaths.has(req.path)) return next();
+      const requestPath = String(req.originalUrl || req.url || '').split('?')[0];
+      if (openProbePaths.has(requestPath)) return next();
       // Loopback short-circuit. We ignore the proxied X-Forwarded-For
       // header here because a reverse proxy MUST always forward the
       // bearer; the loopback bypass exists for the localhost desktop

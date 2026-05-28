@@ -165,7 +165,10 @@ export function DaemonAuthGate({ children }: DaemonAuthGateProps) {
           setAuth({ checked: true, requiresAuth: true, authenticated: false });
           return;
         }
-        const validateRes = await fetch('/api/app-config', { credentials: 'include' });
+        const validateRes = await fetch('/api/app-config', {
+          credentials: 'include',
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (cancelled) return;
         if (validateRes.ok) {
           setAuth({ checked: true, requiresAuth: true, authenticated: true });
