@@ -2429,6 +2429,11 @@ function isLoopbackHostname(hostname) {
   return false;
 }
 
+function isTrustedProxyAuthEnabled(env = process.env) {
+  const raw = String(env.OD_TRUSTED_PROXY || '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
 function isLoopbackPeerAddress(address) {
   if (typeof address !== 'string') return false;
   const normalized = address.trim().toLowerCase().replace(/^\[|\]$/g, '');
@@ -2437,6 +2442,23 @@ function isLoopbackPeerAddress(address) {
   if (normalized === '::1' || normalized === '0:0:0:0:0:0:0:1') return true;
   if (net.isIP(normalized) === 4) return normalized === '127.0.0.1' || normalized.startsWith('127.');
   return false;
+}
+
+export function resolveApiTokenRequiredForRequest({
+  apiToken,
+  trustedProxyAuth,
+  remoteAddress,
+}: {
+  apiToken?: string | null;
+  trustedProxyAuth?: boolean;
+  remoteAddress?: string | null;
+}): boolean {
+  return (
+    typeof apiToken === 'string' &&
+    apiToken.trim().length > 0 &&
+    trustedProxyAuth !== true &&
+    !isLoopbackPeerAddress(remoteAddress ?? undefined)
+  );
 }
 
 function localOriginFromHeader(value) {
@@ -3415,6 +3437,7 @@ export async function startServer({
   // matching `Authorization: Bearer <token>` header (loopback origins
   // are exempted so the desktop UI keeps working).
   const apiToken = (process.env.OD_API_TOKEN ?? '').trim();
+  const trustedProxyAuth = isTrustedProxyAuthEnabled();
   if (!isLoopbackHostname(host) && apiToken.length === 0) {
     throw new Error(
       `OD_BIND_HOST=${host} requires OD_API_TOKEN to be set. ` +
@@ -3468,7 +3491,12 @@ export async function startServer({
   //   - `Authorization: Bearer <OD_API_TOKEN>`
   //   - a valid `od_session` cookie (created by POST /api/auth/session)
   // Health / version / status remain open so monitoring probes don't need the token.
-  if (apiToken.length > 0) {
+  // OD_TRUSTED_PROXY=1 disables this application-level auth gate for
+  // deployments where Cloudflare Access or another upstream proxy is the
+  // only public entrypoint. The bind guard above still requires OD_API_TOKEN
+  // for non-loopback hosts so operators must make an explicit hosted-mode
+  // choice instead of accidentally publishing an unsecured daemon.
+  if (apiToken.length > 0 && !trustedProxyAuth) {
     const openProbePaths = new Set([
       '/api/health',
       '/api/version',
@@ -3963,13 +3991,18 @@ export async function startServer({
     app.use(express.static(STATIC_DIR));
   }
 
-  app.get('/api/health', async (_req, res) => {
+  app.get('/api/health', async (req, res) => {
     const versionInfo = await readCurrentAppVersionInfo();
-    const apiToken = (process.env.OD_API_TOKEN ?? '').trim();
     res.json({
       ok: true,
       version: versionInfo.version,
-      auth: { apiTokenRequired: apiToken.length > 0 },
+      auth: {
+        apiTokenRequired: resolveApiTokenRequiredForRequest({
+          apiToken,
+          trustedProxyAuth,
+          remoteAddress: req.socket?.remoteAddress,
+        }),
+      },
     });
   });
 

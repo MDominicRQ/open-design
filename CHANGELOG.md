@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix hosted `OD_API_TOKEN` browser authentication so remote users can create a session and reuse a stored token.
+- Add trusted auth proxy mode so Cloudflare Access deployments can keep `OD_API_TOKEN` for the bind guard without showing the browser token prompt.
+- Report `OD_API_TOKEN` browser-auth requirements per request so loopback reverse proxies do not trigger a false token prompt.
 
 ## [0.8.0] - 2026-05-20
 
