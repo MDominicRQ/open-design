@@ -27,9 +27,10 @@ services:
 
     # Spec §15.3 — every dimension the daemon respects in headless
     # mode. OD_BIND_HOST=0.0.0.0 + OD_API_TOKEN is the canonical
-    # hosted-mode tuple; remove these two if running on a private
-    # docker network with an upstream reverse proxy that already
-    # gates access.
+    # hosted-mode tuple for this reference manifest, which publishes
+    # the daemon port directly below. Do not use OD_TRUSTED_PROXY here;
+    # that mode belongs in a proxy-only deployment that does not publish
+    # the daemon port as a direct public entrypoint.
     environment:
       OD_BIND_HOST: ${OD_BIND_HOST:-0.0.0.0}
       OD_PORT: ${OD_PORT:-7456}
@@ -62,7 +63,11 @@ services:
 
     healthcheck:
       # /api/daemon/status is the canonical lifecycle probe (Phase 1.5).
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${OD_PORT:-7456}/api/daemon/status >/dev/null 2>&1 || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:${OD_PORT:-7456}/api/daemon/status >/dev/null 2>&1 || exit 1",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -31,6 +31,22 @@ setting `OD_API_TOKEN`. Generate one with:
 openssl rand -hex 32
 ```
 
+### Trusted auth proxy mode
+
+If Open Design is reachable only through Cloudflare Access or another trusted
+authentication proxy, keep `OD_API_TOKEN` set for the hosted bind guard and set
+`OD_TRUSTED_PROXY=1` to disable the extra in-app browser token prompt:
+
+```bash
+OD_API_TOKEN=$(openssl rand -hex 32) \
+OD_TRUSTED_PROXY=1 \
+OPEN_DESIGN_ALLOWED_ORIGINS=https://od.example.com \
+docker compose up -d --no-build
+```
+
+Only use this mode when the daemon port is not directly exposed; the upstream
+proxy must be the sole public entrypoint.
+
 ## Local compose
 
 ```bash

@@ -2448,16 +2448,18 @@ export function resolveApiTokenRequiredForRequest({
   apiToken,
   trustedProxyAuth,
   remoteAddress,
+  loopbackApiBypassAllowed = false,
 }: {
   apiToken?: string | null;
   trustedProxyAuth?: boolean;
   remoteAddress?: string | null;
+  loopbackApiBypassAllowed?: boolean;
 }): boolean {
   return (
     typeof apiToken === 'string' &&
     apiToken.trim().length > 0 &&
     trustedProxyAuth !== true &&
-    !isLoopbackPeerAddress(remoteAddress ?? undefined)
+    !(loopbackApiBypassAllowed && isLoopbackPeerAddress(remoteAddress ?? undefined))
   );
 }
 
@@ -3438,6 +3440,7 @@ export async function startServer({
   // are exempted so the desktop UI keeps working).
   const apiToken = (process.env.OD_API_TOKEN ?? '').trim();
   const trustedProxyAuth = isTrustedProxyAuthEnabled();
+  const allowLoopbackApiBypass = isLoopbackHostname(host);
   if (!isLoopbackHostname(host) && apiToken.length === 0) {
     throw new Error(
       `OD_BIND_HOST=${host} requires OD_API_TOKEN to be set. ` +
@@ -3485,9 +3488,11 @@ export async function startServer({
 
   // Plan §3.K1 — bearer-token + session-cookie middleware.
   //
-  // Active only when OD_API_TOKEN is set. Loopback origins skip the
-  // check (the desktop UI / local CLI never carry a bearer); every
-  // other request must present either:
+  // Active only when OD_API_TOKEN is set. Loopback callers skip the
+  // check only when the daemon itself is bound to a loopback host (the
+  // desktop UI / local CLI never carry a bearer). Public binds must not
+  // trust loopback TCP peers because same-host reverse proxies also arrive
+  // from 127.0.0.1. Every other request must present either:
   //   - `Authorization: Bearer <OD_API_TOKEN>`
   //   - a valid `od_session` cookie (created by POST /api/auth/session)
   // Health / version / status remain open so monitoring probes don't need the token.
@@ -3502,17 +3507,16 @@ export async function startServer({
       '/api/version',
       '/api/daemon/status',
       '/api/agents',
-      '/api/test/connection',
       '/api/auth/session',
     ]);
     app.use('/api', (req, res, next) => {
       const requestPath = String(req.originalUrl || req.url || '').split('?')[0];
       if (openProbePaths.has(requestPath)) return next();
-      // Loopback short-circuit. We ignore the proxied X-Forwarded-For
-      // header here because a reverse proxy MUST always forward the
-      // bearer; the loopback bypass exists for the localhost desktop
-      // UI which has no proxy in the path.
-      if (isLoopbackPeerAddress(req.socket?.remoteAddress)) return next();
+      // Loopback short-circuit is available only for loopback-bound
+      // daemon instances. Public binds may receive same-host proxy traffic
+      // from 127.0.0.1, so they still require a bearer/session unless
+      // OD_TRUSTED_PROXY=1 explicitly delegates auth to the upstream proxy.
+      if (allowLoopbackApiBypass && isLoopbackPeerAddress(req.socket?.remoteAddress)) return next();
       const auth = req.get('authorization') ?? '';
       const match = /^Bearer\s+(\S+)\s*$/i.exec(auth);
       if (match && match[1] === apiToken) return next();
@@ -4001,6 +4005,7 @@ export async function startServer({
           apiToken,
           trustedProxyAuth,
           remoteAddress: req.socket?.remoteAddress,
+          loopbackApiBypassAllowed: allowLoopbackApiBypass,
         }),
       },
     });
