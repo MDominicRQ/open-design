@@ -87,9 +87,6 @@ function renderHead(i: EditorialCollageInputs, css: string): string {
 <meta name='viewport' content='width=device-width, initial-scale=1' />
 <title>${i.brand.name} — ${i.brand.tagline}</title>
 <meta name='description' content='${i.brand.description}' />
-<link rel='preconnect' href='https://fonts.googleapis.com' />
-<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
-<link href='https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,400;1,500;1,600;1,700&family=JetBrains+Mono:wght@400;500&display=swap' rel='stylesheet' />
 <style>${css}${CODE_INLINE_CSS}</style>
 </head>`;
 }
@@ -721,46 +718,11 @@ const REVEAL_AND_NAV_SCRIPT = `
   })();
 </script>`;
 
-const STAR_SCRIPT_TEMPLATE = (repo: string) => `
-<script>
-  /*
-   * GitHub star count — pulls live count and replaces the placeholder
-   * text in the nav CTA. Failures fall back silently.
-   */
-  (function () {
-    var cta = document.querySelector('a.nav-cta:not(.ghost)');
-    if (!cta) return;
-    function format(n) {
-      if (!isFinite(n) || n <= 0) return '0';
-      if (n < 1000) return String(n);
-      var k = (n / 1000).toFixed(1).replace(/\\.0$/, '');
-      return k + 'K';
-    }
-    fetch('https://api.github.com/repos/${repo}', {
-      headers: { Accept: 'application/vnd.github+json' }
-    })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (data) {
-        if (!data || typeof data.stargazers_count !== 'number') return;
-        cta.textContent = 'Star · ' + format(data.stargazers_count);
-        cta.setAttribute('aria-label', 'Star on GitHub — ' + format(data.stargazers_count) + ' stars');
-      })
-      .catch(function () { /* leave placeholder on failure */ });
-  })();
-</script>`;
-
 /* ------------------------------------------------------------------ *
  * top-level
  * ------------------------------------------------------------------ */
 
-function repoFromUrl(url: string): string | null {
-  const m = url.match(/github\.com\/([^/]+)\/([^/?#]+)/i);
-  return m ? `${m[1]}/${m[2]}` : null;
-}
-
 export function renderPage(inputs: EditorialCollageInputs, css: string): string {
-  const repo = repoFromUrl(inputs.brand.primary_url);
-  const starScript = repo ? STAR_SCRIPT_TEMPLATE(repo) : '';
   return [
     `<!DOCTYPE html>`,
     `<html lang='${inputs.brand.locale ?? 'en'}'>`,
@@ -782,7 +744,6 @@ export function renderPage(inputs: EditorialCollageInputs, css: string): string 
     renderFooter(inputs),
     `</div>`,
     REVEAL_AND_NAV_SCRIPT,
-    starScript,
     `</body>`,
     `</html>`,
     ``,

@@ -506,7 +506,9 @@ export function App() {
         // endpoint. If daemon already had values the merge above used them;
         // writing back is idempotent and keeps both sides in sync.
         void syncConfigToDaemon(next);
-        void syncComposioConfigToDaemon(next.composio);
+        if (hasLocalComposioKey) {
+          void syncComposioConfigToDaemon(next.composio);
+        }
         latestPersistedConfigRef.current = next;
         setConfig(next);
 

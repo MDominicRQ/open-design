@@ -105,6 +105,8 @@ describe('GET /api/plugins/:id/asset/*', () => {
     expect(resp.status).toBe(200);
     const csp = resp.headers.get('content-security-policy') ?? '';
     expect(csp).toContain("default-src 'none'");
+    expect(csp).toContain("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net");
+    expect(csp).toContain("font-src 'self' data: https://fonts.gstatic.com");
     expect(csp).toContain("connect-src 'none'");
     expect(csp).toContain("frame-ancestors 'self'");
     expect(resp.headers.get('x-content-type-options')).toBe('nosniff');

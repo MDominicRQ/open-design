@@ -576,9 +576,10 @@ export async function syncComposioConfigToDaemon(
   config: AppConfig['composio'] | undefined,
 ): Promise<boolean> {
   const apiKey = config?.apiKey ?? '';
-  const payload = {
-    ...(apiKey.trim() || !config?.apiKeyConfigured ? { apiKey } : {}),
-  };
+  const hasPendingApiKey = Boolean(apiKey.trim());
+  const shouldClearSavedKey = config?.apiKeyConfigured === false;
+  if (!hasPendingApiKey && !shouldClearSavedKey) return true;
+  const payload = { apiKey };
   try {
     const response = await fetch('/api/connectors/composio/config', {
       method: 'PUT',

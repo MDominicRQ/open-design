@@ -181,7 +181,10 @@ async function openProjectEvents(projectId: string): Promise<ProjectEventStream>
         }
         try {
           evt.data = JSON.parse(evt.data);
-        } catch {}
+        } catch {
+          // Keep non-JSON SSE payloads as raw strings for callers that assert
+          // transport-level events rather than structured project payloads.
+        }
         events.push(evt);
       }
     }
@@ -691,6 +694,7 @@ describe('live artifact tool routes', () => {
     const csp = preview.headers.get('content-security-policy') || '';
     expect(csp).toContain("default-src 'none'");
     expect(csp).toContain("script-src 'none'");
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
     expect(csp).toContain("frame-ancestors 'self'");
     expect(csp).toContain('sandbox allow-same-origin');
     expect(preview.body).toContain('<h1>Preview Route Artifact</h1>');

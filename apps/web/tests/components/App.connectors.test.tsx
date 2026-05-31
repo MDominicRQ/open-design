@@ -250,6 +250,22 @@ describe('App connectors settings flows', () => {
     });
   });
 
+  it('does not write daemon-hydrated empty Composio config back on boot', async () => {
+    mockedFetchComposioConfigFromDaemon.mockResolvedValue({
+      apiKey: '',
+      apiKeyConfigured: false,
+      apiKeyTail: '',
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(mockedFetchComposioConfigFromDaemon).toHaveBeenCalled();
+      expect(mockedSaveConfig).toHaveBeenCalled();
+    });
+    expect(mockedSyncComposioConfigToDaemon).not.toHaveBeenCalled();
+  });
+
   it('does not show first-run privacy consent until daemon config hydration finishes', async () => {
     let resolveDaemonConfig: (value: Record<string, never>) => void = () => {};
     mockedFetchDaemonConfig.mockReturnValue(

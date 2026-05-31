@@ -51,16 +51,25 @@ describe('syncComposioConfigToDaemon', () => {
     });
   });
 
-  it('does not clear a daemon-saved key when local state only has the saved marker', async () => {
+  it('does not call the daemon when local state only has the saved marker', async () => {
     const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
     await syncComposioConfigToDaemon({ apiKey: '', apiKeyConfigured: true, apiKeyTail: 'test' });
 
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sends an explicit empty key when the user cleared Composio credentials', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await syncComposioConfigToDaemon({ apiKey: '', apiKeyConfigured: false });
+
     expect(fetchMock).toHaveBeenCalledWith('/api/connectors/composio/config', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ apiKey: '' }),
     });
   });
 });

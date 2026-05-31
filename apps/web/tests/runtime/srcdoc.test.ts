@@ -69,6 +69,15 @@ describe('buildSrcdoc', () => {
     expect(canSetActive).not.toContain('findActiveByVisibility');
   });
 
+  it('guards stylesheet traversal when cssRules is unavailable', () => {
+    const srcdoc = buildSrcdoc('<main>Hero</main>');
+
+    expect(srcdoc).toContain('function readCssRules(owner)');
+    expect(srcdoc).toContain('if (!rule) continue;');
+    expect(srcdoc).toContain('var nestedRules = readCssRules(rule);');
+    expect(srcdoc).toContain('if (!sheet) continue;');
+  });
+
   it('injects the selection bridge for comment mode', () => {
     const srcdoc = buildSrcdoc('<main data-od-id="hero">Hero</main>', {
       commentBridge: true,

@@ -2631,7 +2631,7 @@ function setLiveArtifactPreviewHeaders(res) {
       "frame-ancestors 'self'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
-      "style-src 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
       'sandbox allow-same-origin',
     ].join('; '),
   );
@@ -6837,7 +6837,7 @@ export async function startServer({
       }
       res.setHeader(
         'Content-Security-Policy',
-        "default-src 'none'; img-src 'self' data: blob:; media-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; frame-ancestors 'self'",
+        "default-src 'none'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline'; connect-src 'none'; frame-ancestors 'self'",
       );
       res.setHeader('X-Content-Type-Options', 'nosniff');
       const ext = path.extname(contentPath).toLowerCase();
@@ -7097,10 +7097,12 @@ export async function startServer({
         return res.status(404).json({ error: 'asset not found' });
       }
       // §9.2 preview CSP — sandboxed iframes get only inline script + style;
-      // no network, no external resources, no document-level forms.
+      // no script/connect network, no document-level forms. Font stylesheets
+      // are allowed for bundled examples so gallery previews stay quiet while
+      // still preventing data exfiltration through fetch/XHR/WebSocket.
       res.setHeader(
         'Content-Security-Policy',
-        "default-src 'none'; img-src 'self' data: blob:; media-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; frame-ancestors 'self'",
+        "default-src 'none'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline'; connect-src 'none'; frame-ancestors 'self'",
       );
       res.setHeader('X-Content-Type-Options', 'nosniff');
       const ext = path.extname(resolved).toLowerCase();

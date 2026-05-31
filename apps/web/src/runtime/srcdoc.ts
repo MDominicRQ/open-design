@@ -361,13 +361,19 @@ function injectPaletteBridge(
   function isRootSelector(selector){
     return !!selector && ROOT_SELECTOR.test(String(selector));
   }
+  function readCssRules(owner){
+    if (!owner) return null;
+    try { return owner.cssRules || null; } catch (_){ return null; }
+  }
   function forEachStyleRule(rules, visit, budget){
     if (!rules || !budget.left) return;
     for (var i=0; i<rules.length && budget.left>0; i++){
       var rule = rules[i];
+      if (!rule) continue;
       budget.left--;
       if (rule.selectorText && rule.style && isRootSelector(rule.selectorText)) visit(rule);
-      if (rule.cssRules && rule.cssRules.length) forEachStyleRule(rule.cssRules, visit, budget);
+      var nestedRules = readCssRules(rule);
+      if (nestedRules && nestedRules.length) forEachStyleRule(nestedRules, visit, budget);
     }
   }
   function applyVarTint(palette){
@@ -376,8 +382,9 @@ function injectPaletteBridge(
     var budget = { left: STYLE_RULE_LIMIT };
     for (var i=0; i<sheets.length; i++){
       var sheet = sheets[i];
-      var rules = null;
-      try { rules = sheet.cssRules; } catch (_){ continue; }
+      if (!sheet) continue;
+      var rules = readCssRules(sheet);
+      if (!rules) continue;
       forEachStyleRule(rules, function(rule){
         var decl = rule.style;
         for (var j=0; j<decl.length; j++){
@@ -540,14 +547,7 @@ function injectManualEditBridge(doc: string): string {
 }
 
 function injectBeforeHeadEnd(doc: string, payload: string): string {
-  if (typeof DOMParser !== 'undefined') {
-    try {
-      const parsed = new DOMParser().parseFromString(doc, 'text/html');
-      if (parsed.head) parsed.head.insertAdjacentHTML('beforeend', payload);
-      return serializeHtmlDocument(parsed);
-    } catch { /* DOMParser failed; fall through to string path */ }
-  }
-  // String fallback: find the real </head> (last one before <body>)
+  // Find the real </head> (last one before <body>)
   // to skip </head> literals inside <script>/<style> in <head>.
   const lower = doc.toLowerCase();
   const bodyStart = lower.indexOf('<body');
@@ -559,14 +559,7 @@ function injectBeforeHeadEnd(doc: string, payload: string): string {
 }
 
 function injectBeforeBodyEnd(doc: string, payload: string): string {
-  if (typeof DOMParser !== 'undefined') {
-    try {
-      const parsed = new DOMParser().parseFromString(doc, 'text/html');
-      if (parsed.body) parsed.body.insertAdjacentHTML('beforeend', payload);
-      return serializeHtmlDocument(parsed);
-    } catch { /* DOMParser failed; fall through to string path */ }
-  }
-  // String fallback: find the real </body> (last one before </html>)
+  // Find the real </body> (last one before </html>)
   // to skip </body> literals inside <script>/<style> in <body>.
   const lower = doc.toLowerCase();
   const htmlEnd = lower.lastIndexOf('</html>');
